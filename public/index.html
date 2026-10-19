@@ -1,0 +1,103 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LoQuePasa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;600&family=Bebas+Neue&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css"></head><body>
+<header class="hdr2"><div class="w hin2">
+<a class="wm" href="/">LoQuePasa</a>
+<nav id="cats" class="menu" aria-label="Categorías"></nav>
+<form id="sf" class="srch" role="search"><input id="q" type="search" placeholder="Buscar" aria-label="Buscar noticias" maxlength="60"><button type="button" id="sb" aria-label="Buscar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button></form>
+</div></header>
+<div class="tick" id="tick" hidden><div class="w tin" id="tin"></div></div>
+<main class="w" id="app"><!--APP--></main>
+<footer class="foot"><div class="w">© LoQuePasa. Noticias de fútbol. Síguenos en <a href="https://www.instagram.com/LoQuePasa/" target="_blank" rel="noopener">Instagram @LoQuePasa</a> y en <a href="https://x.com/LoQuePasa" target="_blank" rel="noopener">X @LoQuePasa</a>. Tablas por <a href="https://footballdata.io" target="_blank" rel="noopener">footballdata.io</a>. <a href="/admin.html">Administrar</a></div></footer>
+<script>
+const SITE='LoQuePasa',FICH='Rumores de Fichajes';
+/* Tabla en vivo (footballdata.io). Si la dejas vacía ('') se usa la tabla manual del panel. */
+const TABLA_URL='https://footballdata.io/widget/standings?leagues=75,15,10,14&theme=light&accent=d80303';
+const COL={'Selección':'#d0001a','Fútbol Nacional':'#0a58ca','Premier League':'#7b2cbf','La Liga':'#c2410c','Rumores de Fichajes':'#087a4c'},CATS=Object.keys(COL);
+const col=c=>COL[c]||'#444';
+const $=s=>document.querySelector(s),app=$('#app');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+/* ---- direcciones limpias (misma regla que usa el servidor) ---- */
+const slug=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80).replace(/-+$/,'');
+const ws=(id,t)=>id+(slug(t)?'-'+slug(t):'');
+const urlA=a=>'/noticia/'+ws(a.id,a.title),urlC=c=>'/categoria/'+slug(c),urlP=(id,n)=>'/periodista/'+ws(id,n);
+const D=d=>new Date(d.replace(' ','T')+'Z');
+const T=d=>{const x=D(d);return x.toDateString()===new Date().toDateString()?x.toLocaleTimeString('es',{hour:'2-digit',minute:'2-digit'}):x.toLocaleDateString('es',{day:'numeric',month:'short'});};
+const fdt=d=>{const x=D(d),o={timeZone:'America/Santiago'};return x.toLocaleDateString('es-ES',{...o,day:'2-digit',month:'2-digit',year:'numeric'})+' - '+x.toLocaleTimeString('es-ES',{...o,hour:'2-digit',minute:'2-digit',hour12:false})+' hs (hora de Chile)';};
+const img=a=>a.image?`<img src="${esc(a.image)}" alt="" loading="lazy">`:'<div class="ph"></div>';
+const api=async u=>{const r=await fetch(u);if(!r.ok)throw 0;return r.json();};
+const card=a=>`<a class="card" style="--c:${col(a.category)}" href="${urlA(a)}">${img(a)}<span class="tag">${esc(a.category)}</span><h3>${esc(a.title)}</h3><span class="time">${T(a.created_at)}</span></a>`;
+/* ---- widgets (datos que se editan desde el panel) ---- */
+let W={},TT='';
+const rows=k=>(W[k]||'').split('\n').map(l=>l.split('|').map(x=>x.trim())).filter(r=>r[0]);
+function renderTick(){const r=rows('marcador');$('#tick').hidden=!r.length;
+  $('#tin').innerHTML=r.slice(0,14).map(([h,a,s,st])=>`<div class="mt${/vivo|min|\d['’]|1T|2T|entretiempo/i.test(st||'')?' live':''}"><span class="tm">${esc(h)}</span><span class="sc">${esc(s||'vs')}</span><span class="tm">${esc(a)}</span><span class="st">${esc(st)}</span></div>`).join('');}
+const loadW=async()=>{try{W=await api('/api/widgets');}catch{}renderTick();};
+const TK=[['tabla-nacional','Nacional'],['tabla-premier','Premier'],['tabla-laliga','La Liga']];
+const tabla=()=>{if(TABLA_URL)return`<aside class="last tabla"><h2>Tabla de posiciones</h2><iframe src="${esc(TABLA_URL)}" title="Tabla de posiciones" loading="lazy" sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe></aside>`;const ks=TK.filter(([k])=>rows(k).length);if(!ks.length)return'';if(!ks.some(([k])=>k===TT))TT=ks[0][0];
+  return`<aside class="last tabla"><h2>Tabla de posiciones</h2><div class="tabs">${ks.map(([k,n])=>`<button type="button" data-t="${k}" class="${k===TT?'on':''}">${n}</button>`).join('')}</div><div class="scr"><table><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>G</th><th>E</th><th>P</th><th>DG</th><th>Pts</th></tr></thead><tbody>${rows(TT).slice(0,20).map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r[0])}</td>${[1,2,3,4,5,6].map(n=>`<td>${esc(r[n]??'')}</td>`).join('')}</tr>`).join('')}</tbody></table></div></aside>`;};
+const ST={rumor:[1,'Rumor'],avanzado:[2,'Avanzado'],confirmado:[3,'Confirmado']};
+const fich=(k,t)=>{const r=rows(k);if(!r.length)return'';
+  return`<div class="fich"><h3>${t}</h3>${r.slice(0,6).map(x=>{const[n,s]=ST[(x[3]||'').toLowerCase()]||ST.rumor;return`<div class="fx s${n}"><div class="fp"><b>${esc(x[0])}</b><span>${esc(x[1]||'?')} → ${esc(x[2]||'?')}</span></div><div class="mtr"><i></i><i></i><i></i></div><small>${s}</small></div>`;}).join('')}</div>`;};
+const fichas=()=>{const a=fich('fichajes-nacional','Fútbol Nacional (Chile)'),b=fich('fichajes-europeo','Fútbol Europeo');
+  return a||b?`<section class="sec" style="--c:${col(FICH)}"><h2><span>Termómetro de fichajes</span></h2><div class="two">${a}${b}</div></section>`:'';};
+/* ---- barras laterales ---- */
+const ov=a=>`<a class="ov" style="--c:${col(a.category)}" href="${urlA(a)}">${img(a)}<div class="ovt"><span class="otag">${esc(a.category)}</span><h3 class="ot"><span>${esc(a.title)}</span></h3></div></a>`;
+const more=l=>`<aside class="more"><h2>Más noticias</h2><div class="ovs">${l.slice(0,4).map(ov).join('')}</div></aside>`;
+const pop=p=>p.length?`<aside class="last pop"><h2>Lo más leído</h2><ul>${p.map((a,n)=>`<li><a href="${urlA(a)}"><span class="rk">${n+1}</span>${esc(a.title)}</a></li>`).join('')}</ul></aside>`:'';
+const side=(l,p,m)=>`<div class="side">${m?more(l):''}${tabla()}${pop(p)}</div>`;
+function nav(cur){$('#cats').innerHTML=`<a class="mi${cur?'':' on'}" href="/">Inicio</a>`+CATS.map(c=>`<a class="mi${c===cur?' on':''}" href="${urlC(c)}">${esc(c)}</a>`).join('');}
+/* ---- compartir ---- */
+const share=a=>{const u=location.origin+urlA(a),e=encodeURIComponent;
+  return`<div class="share"><span>Compartir</span><a class="sh wa" target="_blank" rel="noopener" href="https://wa.me/?text=${e(a.title+' '+u)}">WhatsApp</a><a class="sh fb" target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u=${e(u)}">Facebook</a><a class="sh xx" target="_blank" rel="noopener" href="https://twitter.com/intent/tweet?text=${e(a.title)}&amp;url=${e(u)}&amp;via=LoQuePasa">X</a><a class="sh ml" href="mailto:?subject=${e(a.title)}&amp;body=${e(u)}">Correo</a><button type="button" class="sh cp" data-copy="${esc(u)}">Copiar enlace</button></div>`;};
+/* ---- navegación ---- */
+const go=u=>{if(u!==location.pathname+location.search)history.pushState({},'',u);route();};
+async function route(){
+  const pn=location.pathname,q=new URLSearchParams(location.search);
+  const m=pn.match(/^\/noticia\/(\d+)/),pa=pn.match(/^\/periodista\/(\d+)/),c=pn.match(/^\/categoria\/([^/]+)/),s=pn==='/buscar'?(q.get('q')||'').trim():null;
+  scrollTo(0,0);
+  try{
+    let cat='';
+    if(c){const sl=decodeURIComponent(c[1]);cat=CATS.find(x=>slug(x)===sl)||(await api('/api/categories').catch(()=>[])).find(x=>slug(x)===sl)||'';if(!cat)throw 0;}
+    nav(cat);await loadW();
+    if(m){const[a,l,p]=await Promise.all([api('/api/articles/'+m[1]),api('/api/articles'),api('/api/popular').catch(()=>[])]);
+      try{const k='v'+a.id;if(!sessionStorage.getItem(k)){sessionStorage.setItem(k,1);fetch('/api/articles/'+a.id+'/view',{method:'POST'});}}catch{}
+      document.title=a.title+' | '+SITE;
+      const cu=urlA(a);if(location.pathname!==cu)history.replaceState({},'',cu);
+      const au=a.author_name||a.author;
+      const rel=l.filter(x=>x.category===a.category&&x.id!=a.id).slice(0,2);
+      app.innerHTML=`<div class="art"><article style="--c:${col(a.category)}"><a class="tag" href="${urlC(a.category)}">${esc(a.category)}</a><h1>${esc(a.title)}</h1><p class="sub">${esc(a.summary)}</p>${rel.length?`<ul class="rel">${rel.map(x=>`<li><a href="${urlA(x)}">${esc(x.title)}</a></li>`).join('')}</ul>`:''}<div class="by">${au?`<div>Por ${a.author_id?`<a class="au" href="${urlP(a.author_id,au)}"><b>${esc(au)}</b></a>`:`<b>${esc(au)}</b>`}</div>`:''}<time>${fdt(a.created_at)}</time></div>${share(a)}${a.image?`<figure class="fig"><img src="${esc(a.image)}" alt="${esc(a.title)}">${a.photo_credit?`<figcaption>Foto: ${esc(a.photo_credit)}</figcaption>`:''}</figure>`:''}<div class="body">${/^\s*</.test(a.body)?a.body.replace(/&nbsp;|\u00a0/g,' '):esc(a.body).split(/\n{2,}/).map(p=>`<p>${p.replace(/\n/g,'<br>')}</p>`).join('')}</div></article>${side(l.filter(x=>x.id!=a.id),p,true)}</div>`;return;}
+    if(pa){const u=await api('/api/authors/'+pa[1]);document.title=u.name+' | '+SITE;
+      const cu=urlP(u.id,u.name);if(location.pathname!==cu)history.replaceState({},'',cu);
+      app.innerHTML=`<section class="prof"><span class="tag">Periodista</span><h1>${esc(u.name)}</h1>${u.bio?`<p>${esc(u.bio).replace(/\n/g,'<br>')}</p>`:''}</section><section class="sec"><h2><span>Noticias de ${esc(u.name)}</span></h2>${u.articles.length?`<div class="grid">${u.articles.map(card).join('')}</div>`:'<p class="msg">Todavía no hay noticias publicadas.</p>'}</section>`;return;}
+    if(s!==null){$('#q').value=s;$('#sf').classList.add('open');document.title='Buscar: '+s+' | '+SITE;
+      if(!s){app.innerHTML='<p class="msg">Escribe qué quieres buscar.</p>';return;}
+      const r=await api('/api/search?q='+encodeURIComponent(s));
+      app.innerHTML=`<section class="sec"><h2><span>Resultados para «${esc(s)}»</span></h2>${r.length?`<div class="grid">${r.map(card).join('')}</div>`:'<p class="msg">No encontramos noticias con esa búsqueda. Prueba con otra palabra.</p>'}</section>`;return;}
+    const[l,p]=await Promise.all([api('/api/articles'+(cat?'?category='+encodeURIComponent(cat):'')),api('/api/popular').catch(()=>[])]);document.title=cat?cat+' | '+SITE:SITE;
+    if(cat){app.innerHTML=(cat===FICH?fichas():'')+`<section class="sec" style="--c:${col(cat)}"><h2><span>${esc(cat)}</span></h2>${l.length?`<div class="grid">${l.map(card).join('')}</div>`:'<p class="msg">Todavía no hay noticias en esta categoría.</p>'}</section>`;return;}
+    if(!l.length){app.innerHTML='<p class="msg">Aún no hay noticias. Publica la primera desde <a href="/admin.html"><u>el panel</u></a>.</p>'+fichas();return;}
+    const fi=Math.max(0,l.findIndex(x=>x.featured)),f=l[fi],r=l.filter((_,i)=>i!==fi),by={};r.slice(8).forEach(a=>(by[a.category]??=[]).push(a));
+    const sec=(t,items,c,all)=>`<section class="sec"${c?` style="--c:${c}"`:''}><h2><span>${esc(t)}</span>${all?`<a href="${urlC(t)}">Ver todas</a>`:''}</h2><div class="grid">${items.map(card).join('')}</div></section>`;
+    app.innerHTML=`<div class="hero2${r.length?'':' solo'}"><a class="lead" style="--c:${col(f.category)}" href="${urlA(f)}">${img(f)}<div class="cap"><span class="tag">${esc(f.category)}</span><h1><span>${esc(f.title)}</span></h1></div></a>${r.length?`<div class="stack">${r.slice(0,2).map(ov).join('')}</div>`:''}</div>`
+     +`<div class="home"><div>${r.length>2?sec('Más noticias',r.slice(2,8)):''}${CATS.filter(k=>by[k]).map(k=>sec(k,by[k].slice(0,4),COL[k],true)).join('')}</div>${side(l,p,false)}</div>${fichas()}`;
+  }catch{nav('');app.innerHTML='<p class="msg">No encontramos esta página. <a href="/"><u>Volver al inicio</u></a></p>';}
+}
+$('#sb').onclick=()=>{const f=$('#sf');if(!f.classList.contains('open')){f.classList.add('open');$('#q').focus();}else if($('#q').value.trim())f.requestSubmit();else f.classList.remove('open');};
+$('#sf').onsubmit=e=>{e.preventDefault();const t=$('#q').value.trim();if(t)go('/buscar?q='+encodeURIComponent(t));};
+document.addEventListener('click',e=>{
+  const cp=e.target.closest('[data-copy]');
+  if(cp){const u=cp.dataset.copy;(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>{cp.textContent='¡Enlace copiado!';setTimeout(()=>cp.textContent='Copiar enlace',2000);}).catch(()=>prompt('Copia este enlace:',u));return;}
+  const b=e.target.closest('[data-t]');if(b){TT=b.dataset.t;document.querySelectorAll('.tabla').forEach(el=>el.outerHTML=tabla());return;}
+  if(e.defaultPrevented||e.button||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;
+  const a=e.target.closest('a[href]');if(!a||a.target||a.origin!==location.origin||!/^\/(noticia\/|categoria\/|periodista\/|buscar$|$)/.test(a.pathname))return;
+  e.preventDefault();go(a.pathname+a.search);
+});
+addEventListener('popstate',route);
+/* enlaces antiguos con # (por ejemplo /#/noticia/12) */
+if(location.hash.startsWith('#/')){const h=location.hash.slice(1),m=h.match(/^\/noticia\/(\d+)/),a=h.match(/^\/autor\/(\d+)/),c=h.match(/^\/c\/(.+)/),b=h.match(/^\/buscar\/(.+)/);
+  history.replaceState({},'',m?'/noticia/'+m[1]:a?'/periodista/'+a[1]:c?'/categoria/'+slug(decodeURIComponent(c[1])):b?'/buscar?q='+b[1]:'/');}
+route();setInterval(loadW,60000);
+</script></body></html>

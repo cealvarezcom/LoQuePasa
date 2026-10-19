@@ -1,0 +1,71 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Panel · LoQuePasa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css">
+<link rel="stylesheet" href="style.css"></head><body>
+<header class="top"><a class="brand" href="/"><img src="logo.png" alt="LoQuePasa"></a><div class="acts"><a class="back" href="/">Volver al sitio</a><button id="out" hidden>Cerrar sesión</button></div></header>
+<main class="panel">
+<form id="login" hidden><h1>Acceso al panel</h1>
+<label>Usuario<input id="u" autocomplete="username" required></label>
+<label>Contraseña<input id="p" type="password" autocomplete="current-password" required></label>
+<p id="lerr" class="err"></p><button class="btn">Entrar</button></form>
+<section id="panel" hidden><h1>Publicar una noticia</h1>
+<form id="f"><input type="hidden" id="id">
+<label>Título<input id="title" required maxlength="200"></label>
+<label>Periodista (registrado)<select id="authorsel"></select></label>
+<label>Otro autor (opcional, si no está registrado)<input id="author" maxlength="80"></label>
+<label class="chk"><input type="checkbox" id="featured"> Destacada: será la noticia principal de la portada (reemplaza a la anterior)</label>
+<label>Categoría<input id="category" list="cl" placeholder="Selección" maxlength="40"></label><datalist id="cl"><option value="Selección"><option value="Fútbol Nacional"><option value="Premier League"><option value="La Liga"><option value="Rumores de Fichajes"></datalist>
+<label>Foto (JPG, PNG o WebP, hasta 8 MB)<input type="file" id="file" accept="image/jpeg,image/png,image/webp"></label><input type="hidden" id="image"><div id="prev" class="prev" hidden><img id="pimg" alt=""><button type="button" id="rm">Quitar foto</button></div>
+<label>Crédito de la foto (opcional)<input id="photo_credit" maxlength="120" placeholder="Ej: Agencia UNO"></label>
+<label>Resumen<textarea id="summary" maxlength="400"></textarea></label>
+<label>Texto de la noticia</label><div id="body"></div>
+<button class="btn" id="save">Publicar noticia</button> <button type="button" id="cancel" hidden>Cancelar edición</button>
+<p id="msg" class="mut" role="status"></p></form>
+<h2>Noticias publicadas</h2><div id="list"></div>
+<h2>Periodistas</h2><p class="mut">Solo tú puedes crear cuentas. Cada periodista entra por /periodista.html con su usuario y contraseña.</p>
+<form id="uf"><input type="hidden" id="uid">
+<label>Nombre público<input id="uname" maxlength="80" required></label>
+<label>Usuario para iniciar sesión<input id="uuser" maxlength="30" autocomplete="off" required></label>
+<label>Contraseña<input id="upass" type="password" autocomplete="new-password" placeholder="Mínimo 8 caracteres"></label>
+<label>Biografía breve<textarea id="ubio" maxlength="600"></textarea></label>
+<label class="chk"><input type="checkbox" id="uact" checked> Cuenta activa</label>
+<button class="btn" id="usave">Crear periodista</button> <button type="button" id="ucancel" hidden>Cancelar</button>
+<p id="umsg" class="mut" role="status"></p></form>
+<div id="ulist"></div>
+<h2>Marcador, tablas y fichajes</h2><p class="mut">Una línea por fila. Se actualizan en el sitio al guardar.</p><div id="wlist"></div>
+</section></main>
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+<script src="panel.js"></script>
+<script>
+const WD=[
+['marcador','Marcador superior','Local | Visita | Marcador | Estado','Local FC | Visita FC | 2-1 | Final\nLocal FC | Visita FC | 1-0 | 67 min\nLocal FC | Visita FC | vs | Sáb 15:00'],
+['tabla-nacional','Tabla: Fútbol Nacional','Equipo | PJ | G | E | P | DG | Pts','Equipo A | 10 | 7 | 2 | 1 | +12 | 23'],
+['tabla-premier','Tabla: Premier League','Equipo | PJ | G | E | P | DG | Pts','Equipo A | 10 | 7 | 2 | 1 | +12 | 23'],
+['tabla-laliga','Tabla: La Liga','Equipo | PJ | G | E | P | DG | Pts','Equipo A | 10 | 7 | 2 | 1 | +12 | 23'],
+['fichajes-nacional','Fichajes: Fútbol Nacional (Chile)','Jugador | Club actual | Club destino | Estado (Rumor, Avanzado o Confirmado)','Jugador X | Club A | Club B | Rumor'],
+['fichajes-europeo','Fichajes: Fútbol Europeo','Jugador | Club actual | Club destino | Estado (Rumor, Avanzado o Confirmado)','Jugador X | Club A | Club B | Avanzado']];
+start('admin',()=>{initEditor();bindForm(()=>({author_id:$('#authorsel').value,author:$('#author').value,featured:$('#featured').checked}),loadAll);loadAll();loadUsers();loadW();});
+function hookFill(a){$('#featured').checked=!!a.featured;$('#authorsel').value=a.author_id||'';$('#author').value=a.author_id?'':(a.author||'');}
+function hookReset(){$('#authorsel').value='';$('#featured').checked=false;}
+async function loadAll(){const l=await api('/api/articles');
+  $('#list').innerHTML=l.length?l.map(a=>`<div class="row"><span>${a.featured?'★ ':''}${esc(a.title)}<br><span class="mut">${esc(a.category)}</span></span><span><button data-e="${a.id}">Editar</button> <button data-d="${a.id}">Eliminar</button></span></div>`).join(''):'<p class="mut">Aún no hay noticias. Escribe la primera arriba.</p>';}
+$('#list').onclick=async e=>{const b=e.target.closest('button');if(!b)return;
+  try{if(b.dataset.d){if(confirm('¿Eliminar esta noticia?')){await api('/api/articles/'+b.dataset.d,{method:'DELETE'});loadAll();}}else await fillForm(b.dataset.e);}catch(x){$('#msg').textContent=x.message;}};
+let US=[];
+async function loadUsers(){US=await api('/api/users');
+  $('#ulist').innerHTML=US.length?US.map(u=>`<div class="row"><span>${esc(u.name)}<br><span class="mut">@${esc(u.username)}${u.active?'':' (desactivada)'}</span></span><button data-u="${u.id}">Editar</button></div>`).join(''):'<p class="mut">Aún no hay periodistas.</p>';
+  $('#authorsel').innerHTML='<option value="">Sin periodista registrado</option>'+US.map(u=>`<option value="${u.id}">${esc(u.name)}${u.active?'':' (desactivada)'}</option>`).join('');}
+function ureset(){$('#uf').reset();$('#uid').value='';$('#uuser').disabled=false;$('#upass').placeholder='Mínimo 8 caracteres';$('#usave').textContent='Crear periodista';$('#ucancel').hidden=true;}
+$('#ucancel').onclick=ureset;
+$('#ulist').onclick=e=>{const b=e.target.closest('[data-u]');if(!b)return;const u=US.find(x=>x.id==b.dataset.u);if(!u)return;
+  $('#uid').value=u.id;$('#uname').value=u.name;$('#uuser').value=u.username;$('#uuser').disabled=true;$('#ubio').value=u.bio||'';$('#uact').checked=!!u.active;
+  $('#upass').value='';$('#upass').placeholder='Déjala vacía para no cambiarla';$('#usave').textContent='Guardar periodista';$('#ucancel').hidden=false;$('#uf').scrollIntoView();};
+$('#uf').onsubmit=async e=>{e.preventDefault();const id=$('#uid').value,b={name:$('#uname').value,bio:$('#ubio').value,active:$('#uact').checked,password:$('#upass').value};
+  try{if(id)await api('/api/users/'+id,{method:'PUT',body:b});else{b.username=$('#uuser').value;await api('/api/users',{method:'POST',body:b});}
+    $('#umsg').textContent=id?'Cambios guardados':'Periodista creado';ureset();loadUsers();}catch(x){$('#umsg').textContent=x.message;}};
+async function loadW(){const w=await api('/api/widgets');$('#wlist').innerHTML=WD.map(([k,t,h,ph])=>`<details class="wd"><summary>${t}</summary><p class="mut">Formato: ${h}</p><textarea data-k="${k}" rows="7" placeholder="${esc(ph)}">${esc(w[k])}</textarea><button type="button" data-s="${k}">Guardar</button> <span class="mut" id="wm-${k}"></span></details>`).join('');}
+$('#wlist').onclick=async e=>{const b=e.target.closest('[data-s]');if(!b)return;const k=b.dataset.s;
+  try{await api('/api/widgets/'+k,{method:'PUT',body:{v:$(`[data-k="${k}"]`).value}});$('#wm-'+k).textContent='Guardado';}catch(x){$('#wm-'+k).textContent=x.message;}};
+</script></body></html>

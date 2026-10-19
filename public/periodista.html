@@ -1,0 +1,31 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Periodistas · LoQuePasa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css">
+<link rel="stylesheet" href="style.css"></head><body>
+<header class="top"><a class="brand" href="/"><img src="logo.png" alt="LoQuePasa"></a><div class="acts"><a class="back" href="/">Volver al sitio</a><button id="out" hidden>Cerrar sesión</button></div></header>
+<main class="panel">
+<form id="login" hidden><h1>Acceso para periodistas</h1>
+<label>Usuario<input id="u" autocomplete="username" required></label>
+<label>Contraseña<input id="p" type="password" autocomplete="current-password" required></label>
+<p id="lerr" class="err"></p><button class="btn">Entrar</button></form>
+<section id="panel" hidden><h1>Publicar una noticia</h1><p class="mut">Publicando como <b id="who"></b></p>
+<form id="f"><input type="hidden" id="id">
+<label>Título<input id="title" required maxlength="200"></label>
+<label>Categoría<input id="category" list="cl" placeholder="Selección" maxlength="40"></label><datalist id="cl"><option value="Selección"><option value="Fútbol Nacional"><option value="Premier League"><option value="La Liga"><option value="Rumores de Fichajes"></datalist>
+<label>Foto (JPG, PNG o WebP, hasta 8 MB)<input type="file" id="file" accept="image/jpeg,image/png,image/webp"></label><input type="hidden" id="image"><div id="prev" class="prev" hidden><img id="pimg" alt=""><button type="button" id="rm">Quitar foto</button></div>
+<label>Crédito de la foto (opcional)<input id="photo_credit" maxlength="120" placeholder="Ej: Agencia UNO"></label>
+<label>Resumen<textarea id="summary" maxlength="400"></textarea></label>
+<label>Texto de la noticia</label><div id="body"></div>
+<button class="btn" id="save">Publicar noticia</button> <button type="button" id="cancel" hidden>Cancelar edición</button>
+<p id="msg" class="mut" role="status"></p></form>
+<h2>Mis noticias</h2><div id="list"></div></section></main>
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+<script src="panel.js"></script>
+<script>
+start('journalist',()=>{$('#who').textContent=ME.name;initEditor();bindForm(null,loadMine);loadMine();});
+async function loadMine(){const d=await api('/api/authors/'+ME.id);
+  $('#list').innerHTML=d.articles.length?d.articles.map(a=>`<div class="row"><span>${esc(a.title)}<br><span class="mut">${esc(a.category)}</span></span><span><button data-e="${a.id}">Editar</button></span></div>`).join(''):'<p class="mut">Aún no has publicado noticias.</p>';}
+$('#list').onclick=e=>{const b=e.target.closest('[data-e]');if(b)fillForm(b.dataset.e).catch(x=>{$('#msg').textContent=x.message;});};
+</script></body></html>
